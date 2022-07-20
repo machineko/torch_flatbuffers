@@ -1,0 +1,54 @@
+table Layer {
+    idx: int32;
+    type: string;
+    name: string;
+
+    // Weight based layers
+    weights: [float32];
+    weightsShape: [int32];
+    bias: [float32];
+    biasShape: [int32];
+
+
+    // dropout
+    probability: float32;
+
+    // flatten
+    startDim: int32;
+    endDim: int32;
+
+    // adaptive pool
+    outSize: [int32];
+
+    // batchnorm
+    eps: float32;
+    momentum: float32;
+    numBatchesTracked: int32;
+    runningMean: [float32];
+    runningMeanShape: [int32];
+    runningVar: [float32];
+    runningVarShape: [int32];
+
+    // conv
+    kernelSize: [int32];
+    dilation: [int32];
+    groups: int32;
+    inChannels: int32;
+    outChannels: int32;
+    padMode: string;
+    padding: [int32];
+    stride: [int32];
+    dataLayout: string;
+
+    // maxpool
+    ceilMode: bool;
+
+}
+//union Layer {Flatten, Dropout, Linear, AdaptiveAvgPool, MaxPool, Conv, BatchNorm}
+
+table Layers {
+    name: string;
+    layers: [Layer];
+}
+
+root_type Layers;
