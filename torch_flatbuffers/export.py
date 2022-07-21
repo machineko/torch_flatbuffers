@@ -223,11 +223,9 @@ def save_maxpool2d(
             else:
                 params[f"{k}"] = layer_dict[tmp_k]
 
-    check_padding(layer)
     name = builder.CreateString(name)
     layer_type = builder.CreateString("MaxPool2D")
     data_layout = builder.CreateString("NCHW")
-    pad_mode = builder.CreateString(layer.padding_mode)
     dilation = builder.CreateNumpyVector(
         np.asarray(params["dilation2d"]).astype(np.int32)
     )
@@ -249,10 +247,8 @@ def save_maxpool2d(
     LayerAddKernelSize(builder, kernel_size)
     LayerAddPadding(builder, padding)
     LayerAddStride(builder, stride)
-    LayerAddPadMode(builder, pad_mode)
 
     return LayerEnd(builder)
-
 
 def save_adaptiveavgpool2d(
     layer: nn.AdaptiveAvgPool2d, builder: flatbuffers.Builder, name: str, idx: int
@@ -266,7 +262,15 @@ def save_adaptiveavgpool2d(
             else:
                 params["outSize2d"].append(-1)
     else:
-        params["outSize2d"] = [layer.output_size, layer.output_size]
+        if len(layer.output_size) == 1:
+            params["outSize2d"] = [layer.output_size, layer.output_size]
+        else:
+            for i in layer.output_size:
+                if i:
+                    params["outSize2d"].append(i)
+                else:
+                    params["outSize2d"].append(-1)
+
 
     name = builder.CreateString(name)
     layer_type = builder.CreateString("AdaptiveAvgPool2d")
