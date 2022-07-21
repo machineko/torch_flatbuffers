@@ -293,7 +293,7 @@ def save_relu(
     layer: nn.ReLU, builder: flatbuffers.Builder, name: str, idx: int
 ) -> dict:
     name = builder.CreateString(name)
-    layer_type = builder.CreateString("relu")
+    layer_type = builder.CreateString("ReLU")
     LayerStart(builder)
 
     LayerAddIdx(builder, idx)
@@ -306,7 +306,7 @@ def save_dropout(
     layer: nn.Dropout, builder: flatbuffers.Builder, name: str, idx: int
 ) -> dict:
     name = builder.CreateString(name)
-    layer_type = builder.CreateString("dropout")
+    layer_type = builder.CreateString("Dropout")
     LayerStart(builder)
 
     LayerAddIdx(builder, idx)
@@ -318,7 +318,7 @@ def save_dropout(
 
 def save_flatten(layer: nn.Flatten, builder: flatbuffers.Builder, name: str, idx: int):
     name = builder.CreateString(name)
-    layer_type = builder.CreateString("flatten")
+    layer_type = builder.CreateString("Flatten")
     LayerStart(builder)
 
     LayerAddIdx(builder, idx)
@@ -340,7 +340,7 @@ def save_linear(layer: nn.Linear, builder: flatbuffers.Builder, name: str, idx: 
     params = parse_extras(params, layer, extra_keys)
 
     name = builder.CreateString(name)
-    layer_type = builder.CreateString("linear")
+    layer_type = builder.CreateString("Linear")
 
 
     weights = builder.CreateNumpyVector(params["weights"])
