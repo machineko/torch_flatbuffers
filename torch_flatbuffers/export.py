@@ -1,10 +1,11 @@
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 import torch
 from torch import nn
 import numpy as np
-from .schemes.Layers import *
-from .schemes.Layer import *
+from torch_flatbuffers.schemes.Layers import *
+from torch_flatbuffers.schemes.Layer import *
 import flatbuffers
 
 
@@ -372,6 +373,7 @@ class Parser:
     module_idx: int = 0
     builder = flatbuffers.Builder(0)
 
+
     def save_to_flatbuff(self):
         Path(self.save_path).mkdir(exist_ok=True, parents=True)
         LayersStartLayersVector(self.builder, len(self.data))
@@ -388,6 +390,7 @@ class Parser:
         with open(f"{self.save_path}/{self.name}.data", "wb") as f:
             f.write(buf)
 
+    @torch.no_grad()
     def parse_module(self, module, name: str):
 
         if isinstance(module, (nn.ModuleDict, nn.ModuleList, nn.Sequential)):
