@@ -17,7 +17,7 @@ def check_padding(layer):
         )
 
 
-def parse_extras(params: dict, layer, keys: [str]):
+def parse_extras(params: dict, layer, keys: list[str]):
     for key in keys:
         if key == "weights":
             params["weights"] = layer.weight.numpy().ravel().astype(np.float32)
@@ -429,3 +429,12 @@ class Parser:
         self.idx += 1
         self.data.append(data)
 
+
+parser = Parser(save_path="elo", name="conv2dsimple")
+module = nn.Conv2d(3, 6, (1,1), bias=False)
+parser.parse_module(module=module, name="testconv")
+parser.save_to_flatbuff()
+inp = torch.rand(1,3,256,256)
+out = module(inp)
+torch.save(inp, "inp.pt")
+torch.save(out, "out.pt")
