@@ -431,7 +431,7 @@ class Parser:
 
 
 parser = Parser(save_path="elo", name="conv2dsimple")
-module = nn.Conv2d(3, 6, (1,1), bias=False)
+module = nn.Sequential(nn.Conv2d(3, 6, (1,1), bias=False), nn.Conv2d(6, 3, (2,2), bias=False))
 parser.parse_module(module=module, name="testconv")
 parser.save_to_flatbuff()
 inp = torch.rand(1,3,256,256)

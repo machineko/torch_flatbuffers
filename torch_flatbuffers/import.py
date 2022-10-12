@@ -62,7 +62,7 @@ def load_conv2d(
 buf = open('elo/conv2dsimple.data', 'rb').read()
 buf = bytearray(buf)
 layers = Layers.GetRootAs(buf, 0)
-module = load_conv2d(layer=layers.Layers(0))
+module = nn.Sequential(load_conv2d(layer=layers.Layers(0)), load_conv2d(layer=layers.Layers(1)))
 inp = torch.load("inp.pt")
 y = torch.load("out.pt")
 print(y)
