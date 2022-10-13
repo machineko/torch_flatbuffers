@@ -47,6 +47,7 @@ def parse_extras(params: dict, layer, keys: list[str]):
             params["runningVarShape"] = np.array(
                 layer.running_var.numpy().shape
             ).astype(np.int32)
+
     return params
 
 
@@ -185,6 +186,7 @@ def save_batchnorm2d(
     bias = builder.CreateNumpyVector(params["bias"])
     bias_shape = builder.CreateNumpyVector(params["biasShape"])
     batch_tracked = int(params["numBatchesTracked"])
+    eps = float(layer.eps)
 
     LayerStart(builder)
 
@@ -204,6 +206,7 @@ def save_batchnorm2d(
     LayerAddBiasShape(builder, bias_shape)
 
     LayerAddNumBatchesTracked(builder, batch_tracked)
+    LayerAddEps(builder, eps)
 
     return LayerEnd(builder)
 
@@ -429,12 +432,21 @@ class Parser:
         self.idx += 1
         self.data.append(data)
 
-
+from copy import deepcopy
 parser = Parser(save_path="elo", name="conv2dsimple")
-module = nn.Sequential(nn.Conv2d(3, 6, (1,1), bias=False), nn.Conv2d(6, 3, (2,2), bias=False))
-parser.parse_module(module=module, name="testconv")
-parser.save_to_flatbuff()
+module = nn.Sequential(nn.Conv2d(3, 6, (1,1), bias=False), nn.Conv2d(6, 3, (2,2), bias=True), nn.BatchNorm2d(3))
 inp = torch.rand(1,3,256,256)
+
 out = module(inp)
+
+# module = module.eval()
+parser.parse_module(module=deepcopy(module), name="testconv")
+parser.save_to_flatbuff()
+print( module[-1].running_mean ,
+    module[-1].running_var ,
+    module[-1].num_batches_tracked ,
+    module[-1].num_features,
+    module[-1].eps)
+out = module[:-1](inp)
 torch.save(inp, "inp.pt")
 torch.save(out, "out.pt")
