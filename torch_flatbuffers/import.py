@@ -21,14 +21,23 @@ def load_running_vars(module, layer: Layer):
     module.num_batches_tracked = torch.tensor(layer.NumBatchesTracked())
     module.num_features = layer.RunningVarAsNumpy().shape[0]
 
+def load_kernel_stride(layer: Layer) -> tuple:
+    return tuple(layer.KernelSizeAsNumpy()), tuple(layer.StrideAsNumpy())
+
+def load_dilation(layer: Layer) -> tuple:
+    return tuple(layer.DilationAsNumpy())
+
+def load_padding(layer: Layer) -> tuple:
+    return tuple(layer.PaddingAsNumpy())
 
 def load_conv2d(
     layer: Layer
 ) -> nn.Conv2d:
+    kernel_size, stride = load_kernel_stride(layer)
 
     conv = nn.Conv2d( 
-        in_channels=layer.InChannels(), out_channels=layer.OutChannels(), kernel_size=tuple(layer.KernelSizeAsNumpy()),
-        stride=tuple(layer.StrideAsNumpy()), padding=tuple(layer.PaddingAsNumpy()), dilation=tuple(layer.DilationAsNumpy()),
+        in_channels=layer.InChannels(), out_channels=layer.OutChannels(), kernel_size=kernel_size,
+        stride=stride, padding=load_padding(layer), dilation=load_dilation(layer),
         groups=layer.Groups(), bias=not layer.BiasIsNone()
     )
     load_weights_bias(conv, layer)
@@ -40,6 +49,16 @@ def load_batch_norm2d(layer: Layer) -> nn.BatchNorm2d:
     load_running_vars(batch_norm, layer)
     return batch_norm
 
+def load_maxpool2d(
+    layer: Layer
+) -> dict:
+    kernel_size, stride = load_kernel_stride(layer)
+
+    max_pool = nn.MaxPool2d(kernel_size=kernel_size, stride=stride, dilation=load_dilation(layer), 
+                            padding=load_padding(layer))
+    return max_pool
+
+
 class Parser:
 
     @staticmethod
@@ -49,12 +68,13 @@ class Parser:
                 return load_batch_norm2d(layer)
             case "Conv2D":
                 return load_conv2d(layer)
+            case "MaxPool2D":
+                return load_maxpool2d(layer)
             # case "AdaptiveAvgPool2D":
             #     return AdaptiveAvgPool2D(fromTorchLayer: layer, graph: graph)
             # case "BatchNorm2D":
             #     return BatchNorm(fromConvDataLikeTorch2D: layer, graph: graph, dataType: dataType, trainable: trainable)
-            # case "MaxPool2D":
-            #     return MaxPool2D(fromTorchLayer: layer, graph: graph, dataType: dataType)
+
             # case "Dropout":
             #     return Dropout(fromTorchLayer: layer, graph: graph)
             # case "Linear":
@@ -77,7 +97,7 @@ parser = Parser()
 module = parser.parse_layers(layers)
 inp = torch.load("inp.pt")
 y = torch.load("out.pt")
-print(torch.allclose(module[:-1](inp), y))
+print(torch.allclose(module(inp), y))
 print(y.mean(), module(inp).mean())
 
 # print(monster)

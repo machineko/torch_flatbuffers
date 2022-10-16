@@ -434,7 +434,9 @@ class Parser:
 
 from copy import deepcopy
 parser = Parser(save_path="elo", name="conv2dsimple")
-module = nn.Sequential(nn.Conv2d(3, 6, (1,1), bias=False), nn.Conv2d(6, 3, (2,2), bias=True), nn.BatchNorm2d(3))
+module = nn.Sequential(nn.Conv2d(3, 6, (1,1), bias=False),
+ nn.Conv2d(6, 3, (2,2), bias=True), nn.BatchNorm2d(3), nn.MaxPool2d(kernel_size=2, stride=2)
+)
 inp = torch.rand(1,3,256,256)
 
 out = module(inp)
@@ -442,11 +444,6 @@ out = module(inp)
 # module = module.eval()
 parser.parse_module(module=deepcopy(module), name="testconv")
 parser.save_to_flatbuff()
-print( module[-1].running_mean ,
-    module[-1].running_var ,
-    module[-1].num_batches_tracked ,
-    module[-1].num_features,
-    module[-1].eps)
-out = module[:-1](inp)
+
 torch.save(inp, "inp.pt")
 torch.save(out, "out.pt")
