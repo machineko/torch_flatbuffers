@@ -1,3 +1,5 @@
+# type: ignore // pylance not working with flatbuffers and some of the torch + numpy functions and objects
+
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -266,7 +268,7 @@ def save_adaptiveavgpool2d(
             else:
                 params["outSize2d"].append(-1)
     else:
-        if len(layer.output_size) == 1:
+        if isinstance(layer.output_size) or len(layer.output_size) == 1:
             params["outSize2d"] = [layer.output_size, layer.output_size]
         else:
             for i in layer.output_size:
@@ -277,7 +279,7 @@ def save_adaptiveavgpool2d(
 
 
     name = builder.CreateString(name)
-    layer_type = builder.CreateString("AdaptiveAvgPool2d")
+    layer_type = builder.CreateString("AdaptiveAvgPool2D")
     data_layout = builder.CreateString("NCHW")
     out_size2d = builder.CreateNumpyVector(
         np.asarray(params["outSize2d"]).astype(np.int32)
@@ -434,13 +436,21 @@ class Parser:
 
 from copy import deepcopy
 parser = Parser(save_path="elo", name="conv2dsimple")
-module = nn.Sequential(nn.Conv2d(3, 6, (1,1), bias=False),
- nn.Conv2d(6, 3, (2,2), bias=True), nn.BatchNorm2d(3), nn.MaxPool2d(kernel_size=2, stride=2)
+module = nn.Sequential(
+        nn.Conv2d(3, 6, (1,1), bias=False),
+        nn.Conv2d(6, 3, (2,2), bias=True), 
+        nn.BatchNorm2d(3), 
+        nn.MaxPool2d(kernel_size=2, stride=2),
+        # nn.Flatten(start_dim=2),
+        nn.AdaptiveAvgPool2d((24,24)),
+        nn.Flatten(),
+        nn.Linear(in_features=24*24*3, out_features=3)
+
 )
 inp = torch.rand(1,3,256,256)
 
 out = module(inp)
-
+print(out)
 # module = module.eval()
 parser.parse_module(module=deepcopy(module), name="testconv")
 parser.save_to_flatbuff()

@@ -1,3 +1,5 @@
+# type: ignore
+
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,9 +12,9 @@ import flatbuffers
 
 
 def load_weights_bias(module, layer: Layer):
-    module.weight = nn.Parameter(torch.from_numpy(layer.WeightsAsNumpy()).reshape(tuple(layer.WeightsShapeAsNumpy())))
+    module.weight = nn.Parameter(torch.from_numpy(layer.WeightsAsNumpy()).reshape(tuple(layer.WeightsShapeAsNumpy()))) 
     if not layer.BiasIsNone():
-        module.bias = nn.Parameter(torch.from_numpy(layer.BiasAsNumpy()).flatten())
+        module.bias = nn.Parameter(torch.from_numpy(layer.BiasAsNumpy()).flatten()) 
 
 def load_running_vars(module, layer: Layer):
     
@@ -51,13 +53,24 @@ def load_batch_norm2d(layer: Layer) -> nn.BatchNorm2d:
 
 def load_maxpool2d(
     layer: Layer
-) -> dict:
+) -> nn.MaxPool2d:
     kernel_size, stride = load_kernel_stride(layer)
-
+ 
     max_pool = nn.MaxPool2d(kernel_size=kernel_size, stride=stride, dilation=load_dilation(layer), 
                             padding=load_padding(layer))
     return max_pool
 
+def load_flatten(layer: Layer) -> nn.Flatten:
+    return nn.Flatten(start_dim=layer.StartDim(), end_dim=layer.EndDim())
+
+def load_adaptive_avg_pool2d(layer: Layer) -> nn.AdaptiveAvgPool2d:
+    return nn.AdaptiveAvgPool2d(output_size=tuple(layer.OutSizeAsNumpy()))
+
+def load_linear(layer: Layer) -> nn.Linear:
+    linear = nn.Linear(in_features=1, out_features=1, bias=False)
+    load_weights_bias(linear, layer)
+    linear.weight = nn.Parameter(linear.weight.T) 
+    return linear
 
 class Parser:
 
@@ -70,17 +83,17 @@ class Parser:
                 return load_conv2d(layer)
             case "MaxPool2D":
                 return load_maxpool2d(layer)
-            # case "AdaptiveAvgPool2D":
-            #     return AdaptiveAvgPool2D(fromTorchLayer: layer, graph: graph)
-            # case "BatchNorm2D":
-            #     return BatchNorm(fromConvDataLikeTorch2D: layer, graph: graph, dataType: dataType, trainable: trainable)
-
+            case "Flatten":
+                return load_flatten(layer)
+            case "AdaptiveAvgPool2D":
+                return load_adaptive_avg_pool2d(layer)
+            case "Linear":
+                return load_linear(layer)
+            case other:
+                print(layer.Type().decode("utf-8"))
             # case "Dropout":
             #     return Dropout(fromTorchLayer: layer, graph: graph)
-            # case "Linear":
-            #     return LinearLayer(fromTorchLayer: layer, graph: graph, dataType: dataType, trainable: trainable)
-            # case "Flatten":
-            #     return Flatten(fromTorchLayer: layer, graph: graph)
+
 
 
     def parse_layers(self, layers: Layers):
@@ -99,6 +112,7 @@ inp = torch.load("inp.pt")
 y = torch.load("out.pt")
 print(torch.allclose(module(inp), y))
 print(y.mean(), module(inp).mean())
+print(module(inp).shape, y.shape)
 
 # print(monster)
 # print(monster.Layers(0).Type())
