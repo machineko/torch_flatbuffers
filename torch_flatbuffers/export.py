@@ -93,7 +93,7 @@ def save_conv2d(
                 params[f"{k}"] = layer_dict[tmp_k]
     extra_keys = ["weights", "weightsShape"]
     if isinstance(layer.bias, torch.Tensor):
-        layer.bias = nn.Parameter(layer.bias[None, :, None, None]) # 4d
+        layer.bias = nn.Parameter(layer.bias[None, :, None, None])  # 4d
         extra_keys.append("bias")
         extra_keys.append("biasShape")
 
@@ -256,6 +256,7 @@ def save_maxpool2d(
 
     return LayerEnd(builder)
 
+
 def save_adaptiveavgpool2d(
     layer: nn.AdaptiveAvgPool2d, builder: flatbuffers.Builder, name: str, idx: int
 ) -> dict:
@@ -268,7 +269,7 @@ def save_adaptiveavgpool2d(
             else:
                 params["outSize2d"].append(-1)
     else:
-        if isinstance(layer.output_size) or len(layer.output_size) == 1:
+        if isinstance(layer.output_size, int) or len(layer.output_size) == 1:
             params["outSize2d"] = [layer.output_size, layer.output_size]
         else:
             for i in layer.output_size:
@@ -276,7 +277,6 @@ def save_adaptiveavgpool2d(
                     params["outSize2d"].append(i)
                 else:
                     params["outSize2d"].append(-1)
-
 
     name = builder.CreateString(name)
     layer_type = builder.CreateString("AdaptiveAvgPool2D")
@@ -342,12 +342,13 @@ def save_linear(layer: nn.Linear, builder: flatbuffers.Builder, name: str, idx: 
         extra_keys.append("bias")
         extra_keys.append("biasShape")
 
-    layer.weight = nn.Parameter(torch.transpose(layer.weight, 0, 1))  # matmul without transpose
+    layer.weight = nn.Parameter(
+        torch.transpose(layer.weight, 0, 1)
+    )  # matmul without transpose
     params = parse_extras(params, layer, extra_keys)
 
     name = builder.CreateString(name)
     layer_type = builder.CreateString("Linear")
-
 
     weights = builder.CreateNumpyVector(params["weights"])
     weights_shape = builder.CreateNumpyVector(params["weightsShape"])
@@ -377,7 +378,6 @@ class Parser:
     idx: int = 0
     module_idx: int = 0
     builder = flatbuffers.Builder(0)
-
 
     def save_to_flatbuff(self):
         Path(self.save_path).mkdir(exist_ok=True, parents=True)
@@ -434,26 +434,27 @@ class Parser:
         self.idx += 1
         self.data.append(data)
 
-from copy import deepcopy
-parser = Parser(save_path="elo", name="conv2dsimple")
-module = nn.Sequential(
-        nn.Conv2d(3, 6, (1,1), bias=False),
-        nn.Conv2d(6, 3, (2,2), bias=True), 
-        nn.BatchNorm2d(3), 
-        nn.MaxPool2d(kernel_size=2, stride=2),
-        # nn.Flatten(start_dim=2),
-        nn.AdaptiveAvgPool2d((24,24)),
-        nn.Flatten(),
-        nn.Linear(in_features=24*24*3, out_features=3)
 
-)
-inp = torch.rand(1,3,256,256)
+# from copy import deepcopy
+# parser = Parser(save_path="elo", name="conv2dsimple")
+# module = nn.Sequential(
+#         nn.Conv2d(3, 6, (1,1), bias=False),
+#         nn.Conv2d(6, 3, (2,2), bias=True),
+#         nn.BatchNorm2d(3),
+#         nn.MaxPool2d(kernel_size=2, stride=2),
+#         # nn.Flatten(start_dim=2),
+#         nn.AdaptiveAvgPool2d((24,24)),
+#         nn.Flatten(),
+#         nn.Linear(in_features=24*24*3, out_features=3, bias=False)
 
-out = module(inp)
-print(out)
-# module = module.eval()
-parser.parse_module(module=deepcopy(module), name="testconv")
-parser.save_to_flatbuff()
+# )
+# inp = torch.rand(1,3,256,256)
 
-torch.save(inp, "inp.pt")
-torch.save(out, "out.pt")
+# out = module(inp)
+# print(out)
+# # module = module.eval()
+# parser.parse_module(module=deepcopy(module), name="testconv")
+# parser.save_to_flatbuff()
+
+# torch.save(inp, "inp.pt")
+# torch.save(out, "out.pt")
