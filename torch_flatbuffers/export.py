@@ -10,9 +10,11 @@ from torch_flatbuffers.schemes.Layers import *
 from torch_flatbuffers.schemes.Layer import *
 import flatbuffers
 
+nn.Conv2d
+
 
 def check_padding(layer):
-    supported_pad = ["zeros", "reflect", "constant"]
+    supported_pad = ["zeros", "reflect"]
     if layer.padding_mode not in supported_pad:
         raise ValueError(
             f"{layer.padding_mode} not supported only {supported_pad} supported"
@@ -51,6 +53,47 @@ def parse_extras(params: dict, layer, keys: list[str]):
             ).astype(np.int32)
 
     return params
+
+
+def build_basic_info(builder, idx: int, layer_type: str, name: str):
+    LayerAddIdx(builder, idx)
+    LayerAddType(builder, layer_type)
+    LayerAddName(builder, name)
+
+
+def build_weights_bias(
+    builder, weights, weights_shape, extra_keys: dict, bias=None, bias_shape=None
+):
+    LayerAddWeights(builder, weights)
+    LayerAddWeightsShape(builder, weights_shape)
+    if "bias" in extra_keys:
+        LayerAddBias(builder, bias)
+        LayerAddBiasShape(builder, bias_shape)
+
+
+def build_conv(
+    builder, data_layout, dilation, kernel_size, padding, stride, pad_mode, params: dict
+):
+    LayerAddDataLayout(builder, data_layout)
+    LayerAddDilation(builder, dilation)
+    LayerAddKernelSize(builder, kernel_size)
+    LayerAddPadding(builder, padding)
+    LayerAddStride(builder, stride)
+    LayerAddPadMode(builder, pad_mode)
+    LayerAddInChannels(builder, params["in_channels"])
+    LayerAddOutChannels(builder, params["out_channels"])
+    LayerAddGroups(builder, params["groups"])
+
+
+def create_weights_bias(builder, params: dict, extra_keys: dict):
+    weights = builder.CreateNumpyVector(params["weights"])
+    weights_shape = builder.CreateNumpyVector(params["weightsShape"])
+    if "bias" in extra_keys:
+        bias = builder.CreateNumpyVector(params["bias"])
+        bias_shape = builder.CreateNumpyVector(params["biasShape"])
+    else:
+        bias, bias_shape = None, None
+    return weights, weights_shape, bias, bias_shape
 
 
 def save_conv2d(
@@ -115,31 +158,25 @@ def save_conv2d(
     )
     stride = builder.CreateNumpyVector(np.asarray(params["stride2d"]).astype(np.int32))
 
-    weights = builder.CreateNumpyVector(params["weights"])
-    weights_shape = builder.CreateNumpyVector(params["weightsShape"])
-    if "bias" in extra_keys:
-        bias = builder.CreateNumpyVector(params["bias"])
-        bias_shape = builder.CreateNumpyVector(params["biasShape"])
-
+    weights, weights_shape, bias, bias_shape = create_weights_bias(
+        builder, params, extra_keys
+    )
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
-    LayerAddDataLayout(builder, data_layout)
-    LayerAddDilation(builder, dilation)
-    LayerAddKernelSize(builder, kernel_size)
-    LayerAddPadding(builder, padding)
-    LayerAddStride(builder, stride)
-    LayerAddPadMode(builder, pad_mode)
-    LayerAddInChannels(builder, params["in_channels"])
-    LayerAddOutChannels(builder, params["out_channels"])
-    LayerAddGroups(builder, params["groups"])
-    LayerAddWeights(builder, weights)
-    LayerAddWeightsShape(builder, weights_shape)
-    if "bias" in extra_keys:
-        LayerAddBias(builder, bias)
-        LayerAddBiasShape(builder, bias_shape)
+    build_basic_info(builder, idx, layer_type, name)
+    build_conv(
+        builder, data_layout, dilation, kernel_size, padding, stride, pad_mode, params
+    )
+
+    build_weights_bias(
+        builder=builder,
+        weights=weights,
+        weights_shape=weights_shape,
+        extra_keys=extra_keys,
+        bias=bias,
+        bias_shape=bias_shape,
+    )
+
     return LayerEnd(builder)
 
 
@@ -183,18 +220,15 @@ def save_batchnorm2d(
         np.asarray(params["runningVarShape"]).astype(np.int32)
     )
 
-    weights = builder.CreateNumpyVector(params["weights"])
-    weights_shape = builder.CreateNumpyVector(params["weightsShape"])
-    bias = builder.CreateNumpyVector(params["bias"])
-    bias_shape = builder.CreateNumpyVector(params["biasShape"])
+    weights, weights_shape, bias, bias_shape = create_weights_bias(
+        builder, params, extra_keys
+    )
     batch_tracked = int(params["numBatchesTracked"])
     eps = float(layer.eps)
 
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
+    build_basic_info(builder, idx, layer_type, name)
 
     LayerAddRunningMean(builder, running_mean)
     LayerAddRunningMeanShape(builder, running_mean_shape)
@@ -202,10 +236,14 @@ def save_batchnorm2d(
     LayerAddRunningVar(builder, running_var)
     LayerAddRunningVarShape(builder, running_var_shape)
 
-    LayerAddWeights(builder, weights)
-    LayerAddWeightsShape(builder, weights_shape)
-    LayerAddBias(builder, bias)
-    LayerAddBiasShape(builder, bias_shape)
+    build_weights_bias(
+        builder=builder,
+        weights=weights,
+        weights_shape=weights_shape,
+        extra_keys=extra_keys,
+        bias=bias,
+        bias_shape=bias_shape,
+    )
 
     LayerAddNumBatchesTracked(builder, batch_tracked)
     LayerAddEps(builder, eps)
@@ -245,9 +283,8 @@ def save_maxpool2d(
 
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
+    build_basic_info(builder, idx, layer_type, name)
+
     LayerAddDataLayout(builder, data_layout)
     LayerAddDilation(builder, dilation)
     LayerAddKernelSize(builder, kernel_size)
@@ -286,9 +323,8 @@ def save_adaptiveavgpool2d(
     )
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
+    build_basic_info(builder, idx, layer_type, name)
+
     LayerAddDataLayout(builder, data_layout)
     LayerAddOutSize(builder, out_size2d)
 
@@ -302,9 +338,8 @@ def save_relu(
     layer_type = builder.CreateString("ReLU")
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
+    build_basic_info(builder, idx, layer_type, name)
+
     return LayerEnd(builder)
 
 
@@ -315,9 +350,8 @@ def save_dropout(
     layer_type = builder.CreateString("Dropout")
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
+    build_basic_info(builder, idx, layer_type, name)
+
     LayerAddProbability(builder, layer.p)
     return LayerEnd(builder)
 
@@ -327,9 +361,8 @@ def save_flatten(layer: nn.Flatten, builder: flatbuffers.Builder, name: str, idx
     layer_type = builder.CreateString("Flatten")
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
+    build_basic_info(builder, idx, layer_type, name)
+
     LayerAddStartDim(builder, layer.start_dim)
     LayerAddEndDim(builder, layer.end_dim)
     return LayerEnd(builder)
@@ -353,20 +386,22 @@ def save_linear(layer: nn.Linear, builder: flatbuffers.Builder, name: str, idx: 
     weights = builder.CreateNumpyVector(params["weights"])
     weights_shape = builder.CreateNumpyVector(params["weightsShape"])
 
-    if isinstance(layer.bias, torch.Tensor):
-        bias = builder.CreateNumpyVector(params["bias"])
-        bias_shape = builder.CreateNumpyVector(params["biasShape"])
+    weights, weights_shape, bias, bias_shape = create_weights_bias(
+        builder, params, extra_keys
+    )
 
     LayerStart(builder)
 
-    LayerAddIdx(builder, idx)
-    LayerAddType(builder, layer_type)
-    LayerAddName(builder, name)
-    LayerAddWeights(builder, weights)
-    LayerAddWeightsShape(builder, weights_shape)
-    if isinstance(layer.bias, torch.Tensor):
-        LayerAddBias(builder, bias)
-        LayerAddBiasShape(builder, bias_shape)
+    build_basic_info(builder, idx, layer_type, name)
+
+    build_weights_bias(
+        builder=builder,
+        weights=weights,
+        weights_shape=weights_shape,
+        extra_keys=extra_keys,
+        bias=bias,
+        bias_shape=bias_shape,
+    )
     return LayerEnd(builder)
 
 
@@ -435,26 +470,26 @@ class Parser:
         self.data.append(data)
 
 
-# from copy import deepcopy
-# parser = Parser(save_path="elo", name="conv2dsimple")
-# module = nn.Sequential(
-#         nn.Conv2d(3, 6, (1,1), bias=False),
-#         nn.Conv2d(6, 3, (2,2), bias=True),
-#         nn.BatchNorm2d(3),
-#         nn.MaxPool2d(kernel_size=2, stride=2),
-#         # nn.Flatten(start_dim=2),
-#         nn.AdaptiveAvgPool2d((24,24)),
-#         nn.Flatten(),
-#         nn.Linear(in_features=24*24*3, out_features=3, bias=False)
+from copy import deepcopy
 
-# )
-# inp = torch.rand(1,3,256,256)
+parser = Parser(save_path="elo", name="conv2dsimple")
+module = nn.Sequential(
+    nn.Conv2d(3, 6, (1, 1), bias=False),
+    nn.Conv2d(6, 3, (2, 2), bias=True),
+    nn.BatchNorm2d(3),
+    nn.MaxPool2d(kernel_size=2, stride=2),
+    # nn.Flatten(start_dim=2),
+    nn.AdaptiveAvgPool2d((24, 24)),
+    nn.Flatten(),
+    nn.Linear(in_features=24 * 24 * 3, out_features=3, bias=False),
+)
+inp = torch.rand(1, 3, 256, 256)
 
-# out = module(inp)
-# print(out)
-# # module = module.eval()
-# parser.parse_module(module=deepcopy(module), name="testconv")
-# parser.save_to_flatbuff()
+out = module(inp)
+print(out)
+# module = module.eval()
+parser.parse_module(module=deepcopy(module), name="testconv")
+parser.save_to_flatbuff()
 
-# torch.save(inp, "inp.pt")
-# torch.save(out, "out.pt")
+torch.save(inp, "inp.pt")
+torch.save(out, "out.pt")
