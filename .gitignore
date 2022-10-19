@@ -1,0 +1,8 @@
+dist/*
+.vscode
+.pytest_cache
+__pypackages__
+*.pt
+*pdm*
+elo
+__pycache__

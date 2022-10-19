@@ -1,6 +1,6 @@
 import pytest
-from export import Parser as parse_exp
-from importer import Parser as parse_im
+from torch_flatbuffers.export import Parser as parse_exp
+from torch_flatbuffers.importer import Parser as parse_im
 import torch
 from copy import deepcopy
 from torch import nn
@@ -33,5 +33,4 @@ def test_all():
     layers = Layers.GetRootAs(buf, 0)
     parser = parse_im()
     module = parser.parse_layers(layers)
-
-    print(torch.allclose(module(inp), out))
+    assert torch.allclose(module(inp), out)

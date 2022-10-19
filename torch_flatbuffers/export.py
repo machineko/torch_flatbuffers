@@ -10,8 +10,6 @@ from torch_flatbuffers.schemes.Layers import *
 from torch_flatbuffers.schemes.Layer import *
 import flatbuffers
 
-nn.Conv2d
-
 
 def check_padding(layer):
     supported_pad = ["zeros", "reflect"]
@@ -544,28 +542,66 @@ class Parser:
         self.data.append(data)
 
 
-from copy import deepcopy
+# from copy import deepcopy
 
-parser = Parser(save_path="elo", name="conv2dsimple")
-module = nn.Sequential(
-    nn.Conv2d(3, 6, (1, 1), bias=False),
-    nn.Conv2d(6, 3, (2, 2), bias=True),
-    nn.BatchNorm2d(3),
-    nn.MaxPool2d(kernel_size=2, stride=2),
-    # nn.Flatten(start_dim=2),
-    nn.AdaptiveAvgPool2d((24, 24)),
-    nn.Flatten(start_dim=2),
-    nn.Conv1d(in_channels=3, out_channels=3, kernel_size=(1,)),
-    nn.Flatten(),
-    nn.Linear(in_features=24 * 24 * 3, out_features=3, bias=False),
-)
-inp = torch.rand(1, 3, 256, 256)
+# import torch
+# import operator
 
-out = module(inp)
-print(out)
-# module = module.eval()
-parser.parse_module(module=deepcopy(module), name="testconv")
-parser.save_to_flatbuff()
 
-torch.save(inp, "inp.pt")
-torch.save(out, "out.pt")
+# class MyModule(torch.nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.param = torch.nn.Parameter(torch.rand(1, 6, 1, 1))
+#         self.conv1 = torch.nn.Conv2d(
+#             in_channels=3, out_channels=6, kernel_size=(2, 2), stride=(1, 1)
+#         )
+#         self.conv2 = torch.nn.Conv2d(
+#             in_channels=6, out_channels=3, kernel_size=(2, 2), stride=(1, 1)
+#         )
+
+#     def forward(self, x):
+#         if (x + self.param).sum() > 1:
+#             return self.conv1(x + self.param) - 1.0 + self.conv2(self.conv1(x))
+#         else:
+#             return self.conv1(x + self.param) - 2.0 + self.conv2(self.conv1(x))
+
+
+# module = MyModule()
+
+# from torch.fx import symbolic_trace
+
+# add_set = set([operator.add, torch.add, "add"])
+# sub_set = set([operator.sub, torch.sub, "sub"])
+
+# # Symbolic tracing frontend - captures the semantics of the module
+# symbolic_traced: torch.fx.GraphModule = symbolic_trace(module)
+# symbolic_traced.graph.print_tabular()
+# # High-level intermediate representation (IR) - Graph representation
+# for node in symbolic_traced.graph.nodes:
+
+#     print(node.op, node.name, node.target, node.args)
+
+
+# parser = Parser(save_path="elo", name="conv2dsimple")
+# module = nn.Sequential(
+#     nn.Conv2d(3, 6, (1, 1), bias=False),
+#     nn.Conv2d(6, 3, (2, 2), bias=True),
+#     nn.BatchNorm2d(3),
+#     nn.MaxPool2d(kernel_size=2, stride=2),
+#     # nn.Flatten(start_dim=2),
+#     nn.AdaptiveAvgPool2d((24, 24)),
+#     nn.Flatten(start_dim=2),
+#     nn.Conv1d(in_channels=3, out_channels=3, kernel_size=(1,)),
+#     nn.Flatten(),
+#     nn.Linear(in_features=24 * 24 * 3, out_features=3, bias=False),
+# )
+# inp = torch.rand(1, 3, 256, 256)
+
+# out = module(inp)
+# print(out)
+# # module = module.eval()
+# parser.parse_module(module=deepcopy(module), name="testconv")
+# parser.save_to_flatbuff()
+
+# torch.save(inp, "inp.pt")
+# torch.save(out, "out.pt")
