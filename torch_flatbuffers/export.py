@@ -180,6 +180,78 @@ def save_conv2d(
     return LayerEnd(builder)
 
 
+def save_conv1d(
+    layer: nn.Conv1d, builder: flatbuffers.Builder, name: str, idx: int
+) -> dict:
+    keys = [
+        "dilation",
+        "kernel_size",
+        "padding",
+        "stride",
+        "in_channels",
+        "groups",
+        "out_channels",
+    ]
+    params = {}
+    layer_dict = layer.__dict__
+    for k in keys:
+        if k == "padding1d":
+            if isinstance(layer.padding, str):
+                assert layer.padding == "valid", "same not supported, yet :)"
+                params[f"{k}"] = [0]
+                continue
+            padding = layer.padding
+            if len(padding) == 1:
+                params[f"{k}"] = list(layer.padding)
+                continue
+            else:
+                raise ValueError(f"Wrong shape {layer.padding}")
+        params[f"{k}"] = layer_dict[k]
+
+    extra_keys = ["weights", "weightsShape"]
+    if isinstance(layer.bias, torch.Tensor):
+        layer.bias = nn.Parameter(layer.bias[None, :, None])  # 3d
+        extra_keys.append("bias")
+        extra_keys.append("biasShape")
+
+    check_padding(layer)
+
+    params = parse_extras(params, layer, extra_keys)
+    name = builder.CreateString(name)
+    layer_type = builder.CreateString("Conv1D")
+    data_layout = builder.CreateString("NCHW")
+    pad_mode = builder.CreateString(layer.padding_mode)
+    dilation = builder.CreateNumpyVector(
+        np.asarray(params["dilation"]).astype(np.int32)
+    )
+    kernel_size = builder.CreateNumpyVector(
+        np.asarray(params["kernel_size"]).astype(np.int32)
+    )
+    padding = builder.CreateNumpyVector(np.asarray(params["padding"]).astype(np.int32))
+    stride = builder.CreateNumpyVector(np.asarray(params["stride"]).astype(np.int32))
+
+    weights, weights_shape, bias, bias_shape = create_weights_bias(
+        builder, params, extra_keys
+    )
+    LayerStart(builder)
+
+    build_basic_info(builder, idx, layer_type, name)
+    build_conv(
+        builder, data_layout, dilation, kernel_size, padding, stride, pad_mode, params
+    )
+
+    build_weights_bias(
+        builder=builder,
+        weights=weights,
+        weights_shape=weights_shape,
+        extra_keys=extra_keys,
+        bias=bias,
+        bias_shape=bias_shape,
+    )
+
+    return LayerEnd(builder)
+
+
 def save_batchnorm2d(
     layer: nn.BatchNorm2d, builder: flatbuffers.Builder, name: str, idx: int
 ):
@@ -464,6 +536,8 @@ class Parser:
             data = save_maxpool2d(module, builder=self.builder, name=name, idx=self.idx)
         elif isinstance(module, nn.Flatten):
             data = save_flatten(module, builder=self.builder, name=name, idx=self.idx)
+        elif isinstance(module, nn.Conv1d):
+            data = save_conv1d(module, builder=self.builder, name=name, idx=self.idx)
         else:
             raise NotImplementedError(type(module))
         self.idx += 1
@@ -480,6 +554,8 @@ module = nn.Sequential(
     nn.MaxPool2d(kernel_size=2, stride=2),
     # nn.Flatten(start_dim=2),
     nn.AdaptiveAvgPool2d((24, 24)),
+    nn.Flatten(start_dim=2),
+    nn.Conv1d(in_channels=3, out_channels=3, kernel_size=(1,)),
     nn.Flatten(),
     nn.Linear(in_features=24 * 24 * 3, out_features=3, bias=False),
 )

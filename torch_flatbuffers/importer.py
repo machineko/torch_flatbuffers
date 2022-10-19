@@ -94,6 +94,23 @@ def load_linear(layer: Layer) -> nn.Linear:
     return linear
 
 
+def load_conv1d(layer: Layer) -> nn.Conv1d:
+    kernel_size, stride = load_kernel_stride(layer)
+
+    conv = nn.Conv1d(
+        in_channels=layer.InChannels(),
+        out_channels=layer.OutChannels(),
+        kernel_size=kernel_size,
+        stride=stride,
+        padding=load_padding(layer),
+        dilation=load_dilation(layer),
+        groups=layer.Groups(),
+        bias=not layer.BiasIsNone(),
+    )
+    load_weights_bias(conv, layer)
+    return conv
+
+
 class Parser:
     @staticmethod
     def layer_switch(layer: Layer):
@@ -110,6 +127,8 @@ class Parser:
                 return load_adaptive_avg_pool2d(layer)
             case "Linear":
                 return load_linear(layer)
+            case "Conv1D":
+                return load_conv1d(layer)
             case other:
                 print(layer.Type().decode("utf-8"))
             # case "Dropout":
