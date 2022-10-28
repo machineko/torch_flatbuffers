@@ -13,10 +13,10 @@ def test_all():
     parser = parse_exp(save_path="elo", name="conv2dsimple")
     module = nn.Sequential(
         nn.Conv2d(3, 6, (1, 1), bias=False),
-        nn.Conv2d(6, 3, (2, 2), bias=True),
+        nn.Conv2d(6, 12, (2, 2), bias=True),
+        nn.PixelShuffle(2),
         nn.BatchNorm2d(3),
         nn.MaxPool2d(kernel_size=2, stride=2),
-        # nn.Flatten(start_dim=2),
         nn.AdaptiveAvgPool2d((24, 24)),
         nn.Flatten(start_dim=2),
         nn.Conv1d(in_channels=3, out_channels=3, kernel_size=(1,)),

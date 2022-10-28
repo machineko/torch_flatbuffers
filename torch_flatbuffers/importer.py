@@ -87,6 +87,10 @@ def load_adaptive_avg_pool2d(layer: Layer) -> nn.AdaptiveAvgPool2d:
     return nn.AdaptiveAvgPool2d(output_size=tuple(layer.OutSizeAsNumpy()))
 
 
+def load_pixel_shuffle(layer: Layer) -> nn.PixelShuffle:
+    return nn.PixelShuffle(upscale_factor=layer.UpscaleFactor())
+
+
 def load_linear(layer: Layer) -> nn.Linear:
     linear = nn.Linear(in_features=1, out_features=1, bias=False)
     load_weights_bias(linear, layer)
@@ -129,6 +133,8 @@ class Parser:
                 return load_linear(layer)
             case "Conv1D":
                 return load_conv1d(layer)
+            case "PixelShuffle":
+                return load_pixel_shuffle(layer)
             case other:
                 print(layer.Type().decode("utf-8"))
             # case "Dropout":

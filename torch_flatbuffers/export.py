@@ -475,6 +475,20 @@ def save_linear(layer: nn.Linear, builder: flatbuffers.Builder, name: str, idx: 
     return LayerEnd(builder)
 
 
+def save_pixel_shuffle(
+    layer: nn.PixelShuffle, builder: flatbuffers.Builder, name: str, idx: int
+) -> dict:
+    name = builder.CreateString(name)
+    layer_type = builder.CreateString("PixelShuffle")
+    LayerStart(builder)
+
+    build_basic_info(builder, idx, layer_type, name)
+
+    LayerAddUpscaleFactor(builder, layer.upscale_factor)
+
+    return LayerEnd(builder)
+
+
 @dataclass
 class Parser:
     save_path: str
@@ -499,6 +513,11 @@ class Parser:
         buf = self.builder.Output()
         with open(f"{self.save_path}/{self.name}.data", "wb") as f:
             f.write(buf)
+
+    def custom_parser(self, module, name):
+        match module:
+            case _:
+                raise NotImplementedError(type(module))
 
     @torch.no_grad()
     def parse_module(self, module, name: str):
@@ -536,8 +555,16 @@ class Parser:
             data = save_flatten(module, builder=self.builder, name=name, idx=self.idx)
         elif isinstance(module, nn.Conv1d):
             data = save_conv1d(module, builder=self.builder, name=name, idx=self.idx)
+        elif isinstance(module, nn.PixelShuffle):
+            data = save_pixel_shuffle(
+                module, builder=self.builder, name=name, idx=self.idx
+            )
+        elif isinstance(module, Identity):
+            return
         else:
-            raise NotImplementedError(type(module))
+            data = self.custom_parser(module=module, name=name)
+            if not data:
+                return
         self.idx += 1
         self.data.append(data)
 

@@ -43,6 +43,9 @@ table Layer {
     // maxpool
     ceilMode: bool;
 
+    //PixelShuffle
+    upscaleFactor: int32;
+
 }
 //union Layer {Flatten, Dropout, Linear, AdaptiveAvgPool, MaxPool, Conv, BatchNorm}
 
