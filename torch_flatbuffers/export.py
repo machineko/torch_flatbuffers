@@ -95,7 +95,11 @@ def create_weights_bias(builder, params: dict, extra_keys: dict):
 
 
 def save_conv2d(
-    layer: nn.Conv2d, builder: flatbuffers.Builder, name: str, idx: int
+    layer: nn.Conv2d,
+    builder: flatbuffers.Builder,
+    name: str,
+    idx: int,
+    data_layout: str = "NHWC",
 ) -> dict:
     keys = [
         "dilation2d",
@@ -133,8 +137,15 @@ def save_conv2d(
             else:
                 params[f"{k}"] = layer_dict[tmp_k]
     extra_keys = ["weights", "weightsShape"]
+
+    if data_layout in {"NHWC"}:
+        layer.weight = nn.Parameter(layer.weight.permute(0, 2, 3, 1))  # OIHW -> OHWI
     if isinstance(layer.bias, torch.Tensor):
-        layer.bias = nn.Parameter(layer.bias[None, :, None, None])  # 4d
+        if data_layout == "NHWC":
+            layer.bias = nn.Parameter(layer.bias[None, None, None, :])  # 4d
+        else:
+            layer.bias = nn.Parameter(layer.bias[None, :, None, None])  # 4d
+
         extra_keys.append("bias")
         extra_keys.append("biasShape")
 
@@ -143,7 +154,7 @@ def save_conv2d(
     params = parse_extras(params, layer, extra_keys)
     name = builder.CreateString(name)
     layer_type = builder.CreateString("Conv2D")
-    data_layout = builder.CreateString("NCHW")
+    data_layout = builder.CreateString(data_layout)
     pad_mode = builder.CreateString(layer.padding_mode)
     dilation = builder.CreateNumpyVector(
         np.asarray(params["dilation2d"]).astype(np.int32)
@@ -251,7 +262,11 @@ def save_conv1d(
 
 
 def save_batchnorm2d(
-    layer: nn.BatchNorm2d, builder: flatbuffers.Builder, name: str, idx: int
+    layer: nn.BatchNorm2d,
+    builder: flatbuffers.Builder,
+    name: str,
+    idx: int,
+    data_layout: str = "NHWC",
 ):
     keys = ["eps", "momentum"]
     params = {}
@@ -269,11 +284,19 @@ def save_batchnorm2d(
         "runningVar",
         "runningVarShape",
     ]
-    layer.weight = nn.Parameter(layer.weight[None, :, None, None])
-    layer.bias = nn.Parameter(layer.bias[None, :, None, None])
 
-    layer.running_mean = nn.Parameter(layer.running_mean[None, :, None, None])
-    layer.running_var = nn.Parameter(layer.running_var[None, :, None, None])
+    if data_layout in {"NHWC"}:
+        layer.weight = nn.Parameter(layer.weight[None, None, None, :])
+        layer.bias = nn.Parameter(layer.bias[None, None, None, :])
+
+        layer.running_mean = nn.Parameter(layer.running_mean[None, None, None, :])
+        layer.running_var = nn.Parameter(layer.running_var[None, None, None, :])
+    else:
+        layer.weight = nn.Parameter(layer.weight[None, :, None, None])
+        layer.bias = nn.Parameter(layer.bias[None, :, None, None])
+
+        layer.running_mean = nn.Parameter(layer.running_mean[None, :, None, None])
+        layer.running_var = nn.Parameter(layer.running_var[None, :, None, None])
 
     params = parse_extras(params, layer, extra_keys)
 
@@ -497,6 +520,7 @@ class Parser:
     idx: int = 0
     module_idx: int = 0
     builder = flatbuffers.Builder(0)
+    data_layout: str = "NHWC"
 
     def save_to_flatbuff(self):
         Path(self.save_path).mkdir(exist_ok=True, parents=True)
@@ -528,7 +552,7 @@ class Parser:
             return
         elif list(module.children()):
             module_name = module.__class__.__name__
-            custom_module_name = f"{module_name}_{self.module_idx}"
+            custom_module_name = f"{name}.{module_name}.{self.module_idx}"
             self.module_idx += 1
             for (new_name, new_module) in module.named_children():
                 self.parse_module(new_module, name=f"{custom_module_name}.{new_name}")
@@ -540,10 +564,20 @@ class Parser:
                 module, builder=self.builder, name=name, idx=self.idx
             )
         elif isinstance(module, nn.Conv2d):
-            data = save_conv2d(module, builder=self.builder, name=name, idx=self.idx)
+            data = save_conv2d(
+                module,
+                builder=self.builder,
+                name=name,
+                idx=self.idx,
+                data_layout=self.data_layout,
+            )
         elif isinstance(module, nn.BatchNorm2d):
             data = save_batchnorm2d(
-                module, builder=self.builder, name=name, idx=self.idx
+                module,
+                builder=self.builder,
+                name=name,
+                idx=self.idx,
+                data_layout=self.data_layout,
             )
         elif isinstance(module, nn.Linear):
             data = save_linear(module, builder=self.builder, name=name, idx=self.idx)
@@ -573,40 +607,6 @@ class Parser:
 
 # import torch
 # import operator
-
-
-# class MyModule(torch.nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.param = torch.nn.Parameter(torch.rand(1, 6, 1, 1))
-#         self.conv1 = torch.nn.Conv2d(
-#             in_channels=3, out_channels=6, kernel_size=(2, 2), stride=(1, 1)
-#         )
-#         self.conv2 = torch.nn.Conv2d(
-#             in_channels=6, out_channels=3, kernel_size=(2, 2), stride=(1, 1)
-#         )
-
-#     def forward(self, x):
-#         if (x + self.param).sum() > 1:
-#             return self.conv1(x + self.param) - 1.0 + self.conv2(self.conv1(x))
-#         else:
-#             return self.conv1(x + self.param) - 2.0 + self.conv2(self.conv1(x))
-
-
-# module = MyModule()
-
-# from torch.fx import symbolic_trace
-
-# add_set = set([operator.add, torch.add, "add"])
-# sub_set = set([operator.sub, torch.sub, "sub"])
-
-# # Symbolic tracing frontend - captures the semantics of the module
-# symbolic_traced: torch.fx.GraphModule = symbolic_trace(module)
-# symbolic_traced.graph.print_tabular()
-# # High-level intermediate representation (IR) - Graph representation
-# for node in symbolic_traced.graph.nodes:
-
-#     print(node.op, node.name, node.target, node.args)
 
 
 # parser = Parser(save_path="elo", name="conv2dsimple")
