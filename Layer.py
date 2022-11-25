@@ -413,8 +413,15 @@ class Layer(object):
         return None
 
     # Layer
-    def Padding(self, j):
+    def PaddingString(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(52))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # Layer
+    def Padding(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(54))
         if o != 0:
             a = self._tab.Vector(o)
             return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
@@ -422,29 +429,22 @@ class Layer(object):
 
     # Layer
     def PaddingAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(52))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(54))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
         return 0
 
     # Layer
     def PaddingLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(52))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(54))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # Layer
     def PaddingIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(52))
-        return o == 0
-
-    # Layer
-    def PaddingString(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(54))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
+        return o == 0
 
     # Layer
     def Stride(self, j):
@@ -602,15 +602,15 @@ def AddOutChannels(builder, outChannels):
 def LayerAddPadMode(builder, padMode): builder.PrependUOffsetTRelativeSlot(23, flatbuffers.number_types.UOffsetTFlags.py_type(padMode), 0)
 def AddPadMode(builder, padMode):
     return LayerAddPadMode(builder, padMode)
-def LayerAddPadding(builder, padding): builder.PrependUOffsetTRelativeSlot(24, flatbuffers.number_types.UOffsetTFlags.py_type(padding), 0)
+def LayerAddPaddingString(builder, paddingString): builder.PrependUOffsetTRelativeSlot(24, flatbuffers.number_types.UOffsetTFlags.py_type(paddingString), 0)
+def AddPaddingString(builder, paddingString):
+    return LayerAddPaddingString(builder, paddingString)
+def LayerAddPadding(builder, padding): builder.PrependUOffsetTRelativeSlot(25, flatbuffers.number_types.UOffsetTFlags.py_type(padding), 0)
 def AddPadding(builder, padding):
     return LayerAddPadding(builder, padding)
 def LayerStartPaddingVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartPaddingVector(builder, numElems):
     return LayerStartPaddingVector(builder, numElems)
-def LayerAddPaddingString(builder, paddingString): builder.PrependUOffsetTRelativeSlot(25, flatbuffers.number_types.UOffsetTFlags.py_type(paddingString), 0)
-def AddPaddingString(builder, paddingString):
-    return LayerAddPaddingString(builder, paddingString)
 def LayerAddStride(builder, stride): builder.PrependUOffsetTRelativeSlot(26, flatbuffers.number_types.UOffsetTFlags.py_type(stride), 0)
 def AddStride(builder, stride):
     return LayerAddStride(builder, stride)

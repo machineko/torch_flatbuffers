@@ -70,12 +70,21 @@ def build_weights_bias(
 
 
 def build_conv(
-    builder, data_layout, dilation, kernel_size, padding, stride, pad_mode, params: dict
+    builder,
+    data_layout,
+    dilation,
+    kernel_size,
+    padding,
+    stride,
+    pad_mode,
+    padding_string,
+    params: dict,
 ):
     LayerAddDataLayout(builder, data_layout)
     LayerAddDilation(builder, dilation)
     LayerAddKernelSize(builder, kernel_size)
     LayerAddPadding(builder, padding)
+    LayerAddPaddingString(builder, padding_string)
     LayerAddStride(builder, stride)
     LayerAddPadMode(builder, pad_mode)
     LayerAddInChannels(builder, params["in_channels"])
@@ -115,7 +124,12 @@ def save_conv2d(
     for k in keys:
         if k == "padding2d":
             if isinstance(layer.padding, str):
-                assert layer.padding == "valid", "same not supported, yet :)"
+
+                assert layer.padding in {
+                    "valid",
+                    "same",
+                }, "only valid and same supported"
+
                 params[f"{k}"] = [0, 0]
                 continue
             padding = layer.padding
@@ -165,16 +179,31 @@ def save_conv2d(
     padding = builder.CreateNumpyVector(
         np.asarray(params["padding2d"]).astype(np.int32)
     )
+    paddingStr = (
+        builder.CreateString(layer.padding)
+        if isinstance(layer.padding, str)
+        else builder.CreateString("")
+    )
+
     stride = builder.CreateNumpyVector(np.asarray(params["stride2d"]).astype(np.int32))
 
     weights, weights_shape, bias, bias_shape = create_weights_bias(
         builder, params, extra_keys
     )
+
     LayerStart(builder)
 
     build_basic_info(builder, idx, layer_type, name)
     build_conv(
-        builder, data_layout, dilation, kernel_size, padding, stride, pad_mode, params
+        builder,
+        data_layout,
+        dilation,
+        kernel_size,
+        padding,
+        stride,
+        pad_mode,
+        paddingStr,
+        params,
     )
 
     build_weights_bias(
@@ -206,7 +235,10 @@ def save_conv1d(
     for k in keys:
         if k == "padding1d":
             if isinstance(layer.padding, str):
-                assert layer.padding == "valid", "same not supported, yet :)"
+                assert layer.padding in {
+                    "valid",
+                    "same",
+                }, "only valid and same supported"
                 params[f"{k}"] = [0]
                 continue
             padding = layer.padding
@@ -242,11 +274,24 @@ def save_conv1d(
     weights, weights_shape, bias, bias_shape = create_weights_bias(
         builder, params, extra_keys
     )
+    paddingStr = (
+        builder.CreateString(layer.padding)
+        if isinstance(layer.padding, str)
+        else builder.CreateString("")
+    )
     LayerStart(builder)
 
     build_basic_info(builder, idx, layer_type, name)
     build_conv(
-        builder, data_layout, dilation, kernel_size, padding, stride, pad_mode, params
+        builder,
+        data_layout,
+        dilation,
+        kernel_size,
+        padding,
+        stride,
+        pad_mode,
+        paddingStr,
+        params,
     )
 
     build_weights_bias(
@@ -605,14 +650,10 @@ class Parser:
 
 # from copy import deepcopy
 
-# import torch
-# import operator
-
-
 # parser = Parser(save_path="elo", name="conv2dsimple")
 # module = nn.Sequential(
-#     nn.Conv2d(3, 6, (1, 1), bias=False),
-#     nn.Conv2d(6, 3, (2, 2), bias=True),
+#     nn.Conv2d(3, 6, (1, 1), padding="valid", bias=False),
+#     nn.Conv2d(6, 3, (2, 2), padding="same", bias=True),
 #     nn.BatchNorm2d(3),
 #     nn.MaxPool2d(kernel_size=2, stride=2),
 #     # nn.Flatten(start_dim=2),

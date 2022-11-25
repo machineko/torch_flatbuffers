@@ -37,6 +37,7 @@ table Layer {
     outChannels: int32;
     padMode: string;
     padding: [int32];
+    paddingString: string;
     stride: [int32];
     dataLayout: string;
 
